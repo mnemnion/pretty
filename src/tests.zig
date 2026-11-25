@@ -789,36 +789,38 @@ test {
     // Mixed
     // ------------------------
     try case.run(@typeInfo(struct { f1: bool, f2: u8 }),
-        \\builtin.Type
-        \\  .struct: builtin.Type.Struct
-        \\    .layout: builtin.Type.ContainerLayout
+        \\lang.Type
+        \\  .struct: lang.Type.Struct
+        \\    .is_tuple: bool = false
+        \\    .layout: lang.Type.ContainerLayout
         \\      .auto
         \\    .backing_integer: ?type
         \\      null
-        \\    .fields: []const builtin.Type.StructField
-        \\      [0]: builtin.Type.StructField
-        \\        .name: [:0]const u8
-        \\          "f1"
-        \\        .type: type
-        \\          bool
+        \\    .field_names: []const [:0]const u8
+        \\      [0]: [:0]const u8
+        \\        "f1"
+        \\      [1]: [:0]const u8
+        \\        "f2"
+        \\    .field_types: []const type
+        \\      [0]: type
+        \\        bool
+        \\      [1]: type
+        \\        u8
+        \\    .field_attrs: []const lang.Type.Struct.FieldAttributes
+        \\      [0]: lang.Type.Struct.FieldAttributes
+        \\        .comptime: bool = false
+        \\        .align: ?usize
+        \\          null
         \\        .default_value_ptr: ?*const anyopaque
         \\          null
-        \\        .is_comptime: bool = false
-        \\        .alignment: ?usize
+        \\      [1]: lang.Type.Struct.FieldAttributes
+        \\        .comptime: bool = false
+        \\        .align: ?usize
         \\          null
-        \\      [1]: builtin.Type.StructField
-        \\        .name: [:0]const u8
-        \\          "f2"
-        \\        .type: type
-        \\          u8
         \\        .default_value_ptr: ?*const anyopaque
         \\          null
-        \\        .is_comptime: bool = false
-        \\        .alignment: ?usize
-        \\          null
-        \\    .decls: []const builtin.Type.Declaration
+        \\    .decl_names: []const [:0]const u8
         \\      (empty)
-        \\    .is_tuple: bool = false
     , .{
         .ptr_show_addr = false,
     });

@@ -209,7 +209,7 @@ fn Pretty(opt: Options) type {
         buffer: std.ArrayList(u8),
         /// Tracking visited pointers to prevent recursion.
         pointers: struct {
-            stack: [80]*anyopaque = [1]*anyopaque{@ptrFromInt(1)} ** 80,
+            stack: [80]*anyopaque = @splat(@ptrFromInt(1)),
             top: usize = 0,
 
             fn find(s: *@This(), ptr: anytype) bool {
@@ -265,14 +265,14 @@ fn Pretty(opt: Options) type {
             value,
 
             fn isInfo(tok: Token) bool {
-                if (@intFromEnum(tok) >= @intFromEnum(Token.info_index) and
-                    @intFromEnum(tok) <= @intFromEnum(Token.info_paren))
+                if (@backingInt(tok) >= @backingInt(Token.info_index) and
+                    @backingInt(tok) <= @backingInt(Token.info_paren))
                     return true;
                 return false;
             }
 
             fn isSameOrReverse(tok: Token, prev: Token) bool {
-                return @intFromEnum(tok) <= @intFromEnum(prev);
+                return @backingInt(tok) <= @backingInt(prev);
             }
         };
 
@@ -692,7 +692,7 @@ fn Pretty(opt: Options) type {
                     }
                 },
                 .@"struct" => {
-                    if (meta.fields(val_T).len == 0) {
+                    if (@typeInfo(val_T).@"struct".field_names.len == 0) {
                         // [Option] Show empty struct as empty value
                         if (opt.struct_show_empty)
                             try s.appendValSpecial(.empty, c);
@@ -702,17 +702,17 @@ fn Pretty(opt: Options) type {
                     try s.appendSpecial(.paren_open, c);
 
                     // Struct has fields
-                    inline for (meta.fields(val_T), 0..) |field, i| {
+                    inline for (@typeInfo(val_T).@"struct".field_names, @typeInfo(val_T).@"struct".field_types, 0..) |field_name, field_type, i| {
                         // [Option] If field type tag should be ignored
-                        if (comptime !opt.filter_field_type_tags.includes(typeTag(field.type)))
+                        if (comptime !opt.filter_field_type_tags.includes(typeTag(field_type)))
                             continue;
 
                         // [Option] If field type should be ignored
-                        if (comptime !opt.filter_field_types.includes(field.type))
+                        if (comptime !opt.filter_field_types.includes(field_type))
                             continue;
 
                         // [Option] If field name should be ignored
-                        if (comptime !opt.filter_field_names.includes(field.name))
+                        if (comptime !opt.filter_field_names.includes(field_name))
                             continue;
 
                         const len = i + 1;
@@ -724,9 +724,9 @@ fn Pretty(opt: Options) type {
                         }
 
                         c.index = i;
-                        c.field = field.name;
-                        // s.last_child = if (meta.fields(val_T).len == len) true else false;
-                        try s.traverseRt(@field(val, field.name), val_info, c);
+                        c.field = field_name;
+                        // s.last_child = if (@typeInfo(val_T).@"struct".field_names.len == len) true else false;
+                        try s.traverseRt(@field(val, field_name), val_info, c);
                     }
 
                     try s.appendSpecial(.paren_closed, c);
@@ -804,7 +804,7 @@ fn Pretty(opt: Options) type {
                     // Non-exhaustive and unnamed enums: enum(int) {.., _}
                     const enum_name = try std.fmt.allocPrint(s.arena.allocator(), "{s}({d})", .{
                         @typeName(enm.tag_type),
-                        @intFromEnum(val),
+                        @backingInt(val),
                     });
                     try s.appendVal(enum_name, c);
                 },
@@ -949,7 +949,7 @@ fn Pretty(opt: Options) type {
                     }
                 },
                 .@"struct" => {
-                    if (meta.fields(val_T).len == 0) {
+                    if (@typeInfo(val_T).@"struct".field_names.len == 0) {
                         if (opt.struct_show_empty)
                             try s.appendValSpecial(.empty, c);
                         return;
@@ -957,14 +957,14 @@ fn Pretty(opt: Options) type {
 
                     try s.appendSpecial(.paren_open, c);
 
-                    inline for (meta.fields(val_T), 0..) |field, i| {
-                        if (comptime !opt.filter_field_type_tags.includes(typeTag(field.type)))
+                    inline for (@typeInfo(val_T).@"struct".field_names, @typeInfo(val_T).@"struct".field_types, 0..) |field_name, field_type, i| {
+                        if (comptime !opt.filter_field_type_tags.includes(typeTag(field_type)))
                             continue;
 
-                        if (comptime !opt.filter_field_types.includes(field.type))
+                        if (comptime !opt.filter_field_types.includes(field_type))
                             continue;
 
-                        if (comptime !opt.filter_field_names.includes(field.name))
+                        if (comptime !opt.filter_field_names.includes(field_name))
                             continue;
 
                         const len = i + 1;
@@ -974,8 +974,8 @@ fn Pretty(opt: Options) type {
                         }
 
                         c.index = i;
-                        c.field = field.name;
-                        try s.traverseCt(@field(val, field.name), val_info, c);
+                        c.field = field_name;
+                        try s.traverseCt(@field(val, field_name), val_info, c);
                     }
 
                     try s.appendSpecial(.paren_closed, c);
@@ -1042,7 +1042,7 @@ fn Pretty(opt: Options) type {
 
                     const enum_name = try std.fmt.allocPrint(s.arena.allocator(), "{s}({d})", .{
                         @typeName(enm.tag_type),
-                        @intFromEnum(val),
+                        @backingInt(val),
                     });
                     try s.appendVal(enum_name, c);
                 },
@@ -1136,12 +1136,12 @@ test Filter {
 
 /// Checks if the value is comptime-known
 inline fn isComptime(val: anytype) bool {
-    return meta.fields(@TypeOf(.{val}))[0].is_comptime;
+    return @typeInfo(@TypeOf(.{val})).@"struct".field_attrs[0].@"comptime";
 }
 
 test isComptime {
-    try std.testing.expect(isComptime(std.builtin.Type.StructField));
-    try std.testing.expect(isComptime(meta.fields(struct { f: u8 })));
+    try std.testing.expect(isComptime(std.lang.Type.Struct.FieldAttributes));
+    try std.testing.expect(isComptime(@typeInfo(struct { f: u8 }).@"struct".field_types));
     var rt_slice: []const u8 = &[_]u8{1};
     _ = &rt_slice;
     try std.testing.expect(!isComptime(rt_slice));
@@ -1162,7 +1162,7 @@ test typeTag {
 /// Retrieves the default value of a struct field.
 fn typeDefaultValue(comptime T: type, comptime field: @TypeOf(.enum_literal)) meta.fieldInfo(T, field).type {
     const f = meta.fieldInfo(T, field);
-    return f.defaultValue() orelse @compileError("Field doesn't have a default value.");
+    return f.attrs.defaultValue(f.type) orelse @compileError("Field doesn't have a default value.");
 }
 
 test typeDefaultValue {
@@ -1185,7 +1185,7 @@ test typeDefaultValue {
 /// Concatenates arg strings with the separator in between (comptime only).
 fn strAddSepCt(sep: []const u8, args: anytype) []const u8 {
     if (!@inComptime()) @compileError("Must be called at comptime.");
-    const args_len = meta.fields(@TypeOf(args)).len;
+    const args_len = @typeInfo(@TypeOf(args)).@"struct".field_names.len;
     const items: [args_len][]const u8 = args;
 
     var out: []const u8 = "";
@@ -1199,7 +1199,7 @@ fn strAddSepCt(sep: []const u8, args: anytype) []const u8 {
 
 /// Concatenates arg strings with the separator in between (runtime only).
 fn strAddSep(alloc: Allocator, sep: []const u8, args: anytype) !std.ArrayList(u8) {
-    const args_len = meta.fields(@TypeOf(args)).len;
+    const args_len = @typeInfo(@TypeOf(args)).@"struct".field_names.len;
     const items: [args_len][]const u8 = args;
 
     var out = std.ArrayList(u8).empty;
